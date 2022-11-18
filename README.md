@@ -37,3 +37,9 @@ profile_test(100)
 # Pause profiling
 ITT.pause()
 ```
+
+## Acknowledgments
+
+- https://discourse.julialang.org/t/using-the-intel-vtune-profiler-with-julia/34327/17
+- https://github.com/mchristianl/IntelITT.jl
+
