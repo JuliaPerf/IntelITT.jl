@@ -1,4 +1,4 @@
-module ITT
+module IntelITT
     # Notes:
     # Only supports Linux for now.
     # ENABLE_JITPROFILING=1

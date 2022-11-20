@@ -1,4 +1,4 @@
-# ITT.jl
+# IntelITT.jl
 
 ## Julia and VTunes
 
@@ -11,10 +11,10 @@ you see due to startup and compilation.
 ## Example
 
 ```julia
-using ITT
+using IntelITT
 
 # Check if we are running under VTune
-@assert ITT.available()
+@assert IntelITT.available()
 
 function profile_test(n)
     for i = 1:n
@@ -32,10 +32,10 @@ end
 profile_test(1)
 
 # Resume profiling
-ITT.resume()
+IntelITT.resume()
 profile_test(100)
 # Pause profiling
-ITT.pause()
+IntelITT.pause()
 ```
 
 ## Acknowledgments

@@ -1,4 +1,4 @@
-The ITT.jl package is licensed under the MIT "Expat" License:
+The IntelITT.jl package is licensed under the MIT "Expat" License:
 
 > Copyright (c) 2022: Valentin Churavy.
 >
