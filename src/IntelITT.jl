@@ -11,7 +11,7 @@ module IntelITT
     libittnotify::String = ""
     available() = !isempty(libittnotify)
 
-    function __init()
+    function __init__()
         global libittnotify
         libittnotify = get(ENV, "INTEL_JIT_PROFILER64", "")
         if isempty(libittnotify)
@@ -20,6 +20,7 @@ module IntelITT
         if isempty(libittnotify)
             libittnotify = get(ENV, "VS_PROFILER", "")
         end
+        @debug "Using libittnotify" libittnotify
     end
 
     __itt_resume() = ccall((:__itt_resume, libittnotify), Cvoid,())
