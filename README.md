@@ -2,8 +2,7 @@
 
 ## Julia and VTunes
 
-You need to compile Julia locally with `USE_INTEL_JITEVENTS=1` and
-set the environment variable `ENABLE_JITPROFILING=1`.
+You need to set the environment variable `ENABLE_JITPROFILING=1`. Also note that for Julia <= 1.8, you need to compile Julia locally with `USE_INTEL_JITEVENTS=1`.
 
 I recommend using "Start Paused" to minimize the amount of noise
 you see due to startup and compilation.
