@@ -29,4 +29,31 @@ module IntelITT
     resume() = available() && __itt_resume()
     pause() = available() && __itt_pause()
     # detach() = available() && __itt_detach()
+
+    const __itt_event = Cint
+
+    struct Event
+        id::__itt_event
+        function Event(name)
+            if available()
+                id = ccall((:__itt_event_create, libittnotify), __itt_event, (Cstring, Cint), name, length(name))
+            else
+                id = -1
+            end
+            return new(id)
+        end
+    end
+    Base.cconvert(::Type{__itt_event}, ev::Event) = ev.id
+
+    function start(ev::Event)
+        if ev != -1
+            ccall((:__itt_event_start, libittnotify), Cint, (__itt_event,), ev)
+        end
+    end
+
+    function stop(ev::Event)
+        if ev != -1
+            ccall((:__itt_event_stop, libittnotify), Cint, (__itt_event,), ev)
+        end
+    end
 end # module
