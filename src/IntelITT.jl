@@ -53,7 +53,7 @@ module IntelITT
 
     function stop(ev::Event)
         if ev != -1
-            ccall((:__itt_event_stop, libittnotify), Cint, (__itt_event,), ev)
+            ccall((:__itt_event_end, libittnotify), Cint, (__itt_event,), ev)
         end
     end
 end # module
