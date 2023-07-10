@@ -5,11 +5,18 @@ export isactive
 const __itt_id = NTuple{3, Culonglong}
 const __itt_null = __itt_id((0, 0, 0))
 
-macro apicall(name, args...)
-    slot_name = String(name.value) * "_ptr__3_0"
+@inline lookup_function(name::Symbol) = _lookup_function(Val(name))
+@generated function _lookup_function(::Val{name}) where {name}
+    slot_name = String(name) * "_ptr__3_0"
     quote
         slot = cglobal(($(slot_name), ittapi_jll.libittnotify))
-        ptr = unsafe_load(convert(Ptr{Ptr{Cvoid}}, slot))
+        unsafe_load(convert(Ptr{Ptr{Cvoid}}, slot))
+    end
+end
+
+macro apicall(name, args...)
+    quote
+        ptr = lookup_function($(name))
         ccall(ptr, ($(map(esc, args)...)))
     end
 end
