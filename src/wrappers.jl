@@ -70,7 +70,7 @@ Base.show(io::IO, d::Domain) = print(io, "Domain(", repr(name(d)), ", enabled=$(
 isenabled(d::Domain) = d.flags == 0 ? false : true
 enable!(d::Domain, enable::Bool=true) = d.flags = enable ? 1 : 0
 
-name(d::Domain) = unsafe_string(unsafe_load(d.handle).name)
+name(d::Domain) = unsafe_string(d.name)
 
 
 #
