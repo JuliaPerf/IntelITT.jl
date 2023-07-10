@@ -21,8 +21,18 @@ macro apicall(name, args...)
     end
 end
 
-# XXX: this is observed, not documented
-isactive() = @apicall(:__itt_api_version, Cchar, ()) != 0
+@enum __itt_collection_state::Cint begin
+    __itt_collection_uninitialized = 0          # uninitialized
+    __itt_collection_init_fail = 1              # failed to init
+    __itt_collection_collector_absent = 2       # non work state collector is absent
+    __itt_collection_collector_exists = 3       # work state collector exists
+    __itt_collection_init_successful = 4        # success to init
+end
+
+collection_state() =
+    ccall((:__itt_get_collection_state, ittapi_jll.libittnotify), __itt_collection_state, ())
+
+isactive() = collection_state() == __itt_collection_init_successful
 
 
 #
