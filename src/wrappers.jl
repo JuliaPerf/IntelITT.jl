@@ -141,3 +141,97 @@ end
 
 task_end(domain::Domain) =
     @apicall(:__itt_task_end, Cvoid, (Ptr{__itt_domain},), domain)
+
+
+#
+# Events
+#
+
+export Event, start, stop
+
+const __itt_event = Cint
+
+struct Event
+    id::__itt_event
+end
+Base.convert(::Type{__itt_event}, ev::Event) = ev.id
+
+Event(name::String) = Event(@apicall(:__itt_event_create, __itt_event, (Cstring, Cint), name, length(name)))
+
+start(ev::Event) = @apicall(:__itt_event_start, Cint, (__itt_event,), ev)
+stop(ev::Event) = @apicall(:__itt_event_end, Cint, (__itt_event,), ev)
+
+
+#
+# Counters
+#
+
+export Counter, increment!, decrement!
+
+struct __itt_counter end
+
+@enum __itt_metadata_type::Cint begin
+    __itt_metadata_unknown = 0
+    __itt_metadata_u64
+    __itt_metadata_s64
+    __itt_metadata_u32
+    __itt_metadata_s32
+    __itt_metadata_u16
+    __itt_metadata_s16
+    __itt_metadata_float
+    __itt_metadata_double
+end
+
+function Base.convert(::Type{__itt_metadata_type}, t::Type)
+    if t == UInt64
+        __itt_metadata_u64
+    elseif t == Int64
+        __itt_metadata_s64
+    elseif t == UInt32
+        __itt_metadata_u32
+    elseif t == Int32
+        __itt_metadata_s32
+    elseif t == UInt16
+        __itt_metadata_u16
+    elseif t == Int16
+        __itt_metadata_s16
+    elseif t == Float32
+        __itt_metadata_float
+    elseif t == Float64
+        __itt_metadata_double
+    else
+        throw(ArgumentError("unsupported counter type: $t"))
+    end
+end
+
+mutable struct Counter{T}
+    handle::Ptr{__itt_counter}
+
+    function Counter{T}(name::String, domain::String) where T
+        handle = @apicall(:__itt_counter_create, Ptr{__itt_counter},
+                          (Cstring, Cstring, __itt_metadata_type), name, domain, T)
+        obj = new{T}(handle)
+        finalizer(obj) do _
+            # XXX: under VTune, __itt_counter_destroy is not implemented
+            if lookup_function(:__itt_counter_destroy) != C_NULL
+                @apicall(:__itt_counter_destroy, Cvoid, (Ptr{__itt_counter},), obj)
+            end
+        end
+    end
+end
+Base.unsafe_convert(::Type{Ptr{__itt_counter}}, c::Counter) = c.handle
+
+Base.setindex!(c::Counter{T}, value) where T =
+    @apicall(:__itt_counter_set_value, Cvoid,
+             (Ptr{__itt_counter}, Ptr{Nothing}),
+             c, Ref{T}(value))
+
+increment!(c::Counter{UInt64}) =
+    @apicall(:__itt_counter_inc, Cvoid, (Ptr{__itt_counter},), c)
+increment!(c::Counter{UInt64}, value) =
+    @apicall(:__itt_counter_inc_delta, Cvoid, (Ptr{__itt_counter}, Culonglong), c, value)
+
+decrement!(c::Counter{UInt64}) =
+    @apicall(:__itt_counter_dec, Cvoid, (Ptr{__itt_counter},), c)
+decrement!(c::Counter{UInt64}, value) =
+    @apicall(:__itt_counter_dec_delta, Cvoid, (Ptr{__itt_counter}, Culonglong), c, value)
