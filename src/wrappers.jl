@@ -275,3 +275,128 @@ function decrement!(c::Counter{UInt64}, value)
     c.handle == C_NULL && return
     @apicall(:__itt_counter_dec_delta, Cvoid, (Ptr{__itt_counter}, Culonglong), c, value)
 end
+
+
+#
+# Memory Allocations
+#
+
+export HeapFunction,
+       alloc_begin, alloc_end, alloc,
+       free_begin, free_end, free,
+       realloc_begin, realloc_end, realloc
+
+struct __itt_heap_function end
+
+struct HeapFunction
+    handle::Ptr{__itt_heap_function}
+end
+Base.unsafe_convert(::Type{Ptr{__itt_heap_function}}, h::HeapFunction) = h.handle
+
+function HeapFunction(name::String, domain::String)
+    isactive() || return HeapFunction(C_NULL)
+    HeapFunction(@apicall(:__itt_heap_function_create, Ptr{__itt_heap_function},
+                          (Cstring, Cstring), name, domain))
+end
+
+function alloc_begin(h::HeapFunction, size::Integer; initialized::Bool=false)
+    h.handle == C_NULL && return
+    @apicall(:__itt_heap_allocate_begin, Cvoid,
+             (Ptr{__itt_heap_function}, Csize_t, Cint),
+             f, size, initialized)
+end
+function alloc_end(h::HeapFunction, ptr::Ptr{Nothing}, size::Integer; initialized::Bool=false)
+    h.handle == C_NULL && return
+    @apicall(:__itt_heap_allocate_end, Cvoid,
+             (Ptr{__itt_heap_function}, Ptr{Ptr{Nothing}}, Csize_t, Cint),
+             f, Ref(ptr), size, initialized)
+end
+
+"""
+    alloc(h::HeapFunction, size::Integer; initialized::Bool=false) do size
+        ptr = ...
+    end
+
+Mark a block of code as allocating memory. The block should return a pointer the allocated
+memory. The `initialized` argument indicates whether the memory is initialized or not.
+"""
+function alloc(f, h::HeapFunction, size::Integer; initialized::Bool=false)
+    alloc_begin(h, size; initialized)
+    try
+        ptr = f(size)
+        alloc_end(h, ptr, size; initialized)
+        ptr
+    catch err
+        alloc_end(h, C_NULL, size; initialized)
+        rethrow(err)
+    end
+end
+
+function free_begin(h::HeapFunction, ptr::Ptr{Nothing})
+    h.handle == C_NULL && return
+    @apicall(:__itt_heap_free_begin, Cvoid,
+             (Ptr{__itt_heap_function}, Ptr{Nothing}),
+             h, ptr)
+end
+function free_end(h::HeapFunction, ptr::Ptr{Nothing})
+    h.handle == C_NULL && return
+    @apicall(:__itt_heap_free_end, Cvoid,
+             (Ptr{__itt_heap_function}, Ptr{Nothing}),
+             h, ptr)
+end
+
+"""
+    free(h::HeapFunction, ptr::Ptr{Nothing}) do ptr
+        # ...
+    end
+
+Mark a block of code as freeing memory at `ptr`.
+"""
+function free(f, h::HeapFunction, ptr::Ptr{Nothing})
+    free_begin(h, ptr)
+    try
+        ret = f(ptr)
+        free_end(h, ptr)
+        ret
+    catch err
+        free_end(h, C_NULL)
+        rethrow(err)
+    end
+end
+
+function realloc_begin(h::HeapFunction, ptr::Ptr{Nothing}, new_size::Integer;
+                       initialized::Bool=false)
+    h.handle == C_NULL && return
+    @apicall(:__itt_heap_reallocate_begin, Cvoid,
+             (Ptr{__itt_heap_function}, Ptr{Nothing}, Csize_t, Cint),
+             h, ptr, new_size, initialized)
+end
+function realloc_end(h::HeapFunction, ptr::Ptr{Nothing}, new_ptr::Ptr{Nothing},
+                     new_size::Integer; initialized::Bool=false)
+    h.handle == C_NULL && return
+    @apicall(:__itt_heap_reallocate_end, Cvoid,
+             (Ptr{__itt_heap_function}, Ptr{Nothing}, Ptr{Ptr{Nothing}}, Csize_t, Cint),
+             h, ptr, Ref(new_ptr), new_size, initialized)
+end
+
+"""
+    realloc(h::HeapFunction, ptr::Ptr{Nothing}, new_size::Integer;
+            initialized::Bool=false) do ptr, new_size
+        new_ptr = ...
+    end
+
+Mark a block of code as reallocating memory at `ptr` to `new_size`. The block should return
+a pointer to the new memory.
+"""
+function realloc(f, h::HeapFunction, ptr::Ptr{Nothing}, new_size::Integer;
+                 initialized::Bool=false)
+    realloc_begin(h, ptr, new_size; initialized)
+    try
+        new_ptr = f(ptr, new_size)
+        realloc_end(h, ptr, new_ptr, new_size; initialized)
+        new_ptr
+    catch err
+        realloc_end(h, ptr, C_NULL, new_size; initialized)
+        rethrow(err)
+    end
+end

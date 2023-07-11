@@ -52,5 +52,31 @@ let ctr = Counter{Float64}("test", "test")
     @test_throws MethodError decrement!(ctr, 2.0)
 end
 
+let h = HeapFunction("test", "test")
+    alloc_begin(h, 0)
+    alloc_end(h, C_NULL, 0)
+
+    alloc(h, 0) do size
+        @test size == 0
+        C_NULL
+    end
+
+    free_begin(h, C_NULL)
+    free_end(h, C_NULL)
+
+    free(h, C_NULL) do ptr
+        @test ptr == C_NULL
+        nothing
+    end
+
+    realloc_begin(h, C_NULL, 0)
+    realloc_end(h, C_NULL, C_NULL, 0)
+
+    realloc(h, C_NULL, 0) do ptr, new_size
+        @test ptr == C_NULL
+        @test new_size == 0
+        C_NULL
+    end
+end
 
 end
