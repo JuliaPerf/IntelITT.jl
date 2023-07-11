@@ -14,9 +14,17 @@ const __itt_null = __itt_id((0, 0, 0))
     end
 end
 
+struct MissingCollectorError <: Exception
+end
+
+function Base.showerror(io::IO, e::MissingCollectorError)
+    print(io, "This API cannot be used without an active collector.")
+end
+
 macro apicall(name, args...)
     quote
         ptr = lookup_function($(name))
+        ptr == C_NULL && throw(MissingCollectorError())
         ccall(ptr, ($(map(esc, args)...)))
     end
 end
@@ -57,7 +65,7 @@ Domain(name::String) = Domain(@apicall(:__itt_domain_create, Ptr{__itt_domain}, 
 # XXX: can we do this cleaner?
 function Base.getproperty(d::Domain, name::Symbol)
     if name in [:flags, :name]
-        d.handle == C_NULL && throw(UndefRefError())
+        d.handle == C_NULL && throw(MissingCollectorError())
         return getfield(unsafe_load(d.handle), name)
     else
         return getfield(d, name)
@@ -75,12 +83,18 @@ function Base.setproperty!(d::Domain, name::Symbol, value)
     end
 end
 
-Base.show(io::IO, d::Domain) = print(io, "Domain(", repr(name(d)), ", enabled=$(isenabled(d)))")
+function Base.show(io::IO, d::Domain)
+    print(io, "Domain(")
+    if isactive()
+        print(io, repr(name(d)), ", enabled=$(isenabled(d))")
+    end
+    print(io, ")")
+end
 
 isenabled(d::Domain) = d.flags == 0 ? false : true
 enable!(d::Domain, enable::Bool=true) = d.flags = enable ? 1 : 0
 
-name(d::Domain) = unsafe_string(d.name)
+name(d::Domain) = d.name == C_NULL ? "" : unsafe_string(d.name)
 
 
 #
@@ -101,7 +115,7 @@ Base.unsafe_convert(::Type{Ptr{__itt_string_handle}}, s::StringHandle) = s.handl
 StringHandle(name::String) =
     StringHandle(@apicall(:__itt_string_handle_create, Ptr{__itt_string_handle}, (Cstring,), name))
 
-String(s::StringHandle) = unsafe_string(unsafe_load(s.handle).str)
+String(s::StringHandle) = s.handle == C_NULL ? "" : unsafe_string(unsafe_load(s.handle).str)
 
 
 #
@@ -134,13 +148,16 @@ thread_ignore() = @apicall(:__itt_thread_ignore, Cvoid, ())
 export task_begin, task_end
 
 function task_begin(domain::Domain, name::String)
+    isactive() || return
     @apicall(:__itt_task_begin, Cvoid,
              (Ptr{__itt_domain}, __itt_id, __itt_id, Ptr{__itt_string_handle},),
              domain, __itt_null, __itt_null, StringHandle(name))
 end
 
-task_end(domain::Domain) =
+function task_end(domain::Domain)
+    isactive() || return
     @apicall(:__itt_task_end, Cvoid, (Ptr{__itt_domain},), domain)
+end
 
 
 #
@@ -156,10 +173,23 @@ struct Event
 end
 Base.convert(::Type{__itt_event}, ev::Event) = ev.id
 
-Event(name::String) = Event(@apicall(:__itt_event_create, __itt_event, (Cstring, Cint), name, length(name)))
+function Event(name::String)
+    # XXX: the stub library doesn't have a no-op __itt_event_create; handle it ourselves
+    isactive() || return Event(-1)
 
-start(ev::Event) = @apicall(:__itt_event_start, Cint, (__itt_event,), ev)
-stop(ev::Event) = @apicall(:__itt_event_end, Cint, (__itt_event,), ev)
+    Event(@apicall(:__itt_event_create, __itt_event, (Cstring, Cint), name, length(name)))
+end
+
+function start(ev::Event)
+    ev.id == -1 && return
+    @apicall(:__itt_event_start, Cint, (__itt_event,), ev)
+end
+
+function stop(ev::Event)
+    ev.id == -1 && return
+    @apicall(:__itt_event_end, Cint, (__itt_event,), ev)
+end
+
 
 
 #
@@ -221,17 +251,27 @@ mutable struct Counter{T}
 end
 Base.unsafe_convert(::Type{Ptr{__itt_counter}}, c::Counter) = c.handle
 
-Base.setindex!(c::Counter{T}, value) where T =
+function Base.setindex!(c::Counter{T}, value) where T
+    c.handle == C_NULL && return
     @apicall(:__itt_counter_set_value, Cvoid,
              (Ptr{__itt_counter}, Ptr{Nothing}),
              c, Ref{T}(value))
+end
 
-increment!(c::Counter{UInt64}) =
+function increment!(c::Counter{UInt64})
+    c.handle == C_NULL && return
     @apicall(:__itt_counter_inc, Cvoid, (Ptr{__itt_counter},), c)
-increment!(c::Counter{UInt64}, value) =
+end
+function increment!(c::Counter{UInt64}, value)
+    c.handle == C_NULL && return
     @apicall(:__itt_counter_inc_delta, Cvoid, (Ptr{__itt_counter}, Culonglong), c, value)
+end
 
-decrement!(c::Counter{UInt64}) =
+function decrement!(c::Counter{UInt64})
+    c.handle == C_NULL && return
     @apicall(:__itt_counter_dec, Cvoid, (Ptr{__itt_counter},), c)
-decrement!(c::Counter{UInt64}, value) =
+end
+function decrement!(c::Counter{UInt64}, value)
+    c.handle == C_NULL && return
     @apicall(:__itt_counter_dec_delta, Cvoid, (Ptr{__itt_counter}, Culonglong), c, value)
+end
