@@ -1,6 +1,6 @@
 # high-level utilities
 
-macro profile(ex)
+macro collect(ex)
     quote
         isactive() || @warn("No ITT collector present. Make sure you have a collector attached to your process, e.g., by running under VTune.")
         resume()
@@ -10,8 +10,8 @@ macro profile(ex)
     end
 end
 
-macro range(ex...)
-    length(ex) >= 2 || error("Usage: IntelITT.@range [domain=...] name::String code")
+macro task(ex...)
+    length(ex) >= 2 || error("Usage: IntelITT.@task [domain=...] name::String code")
     name = ex[end-1]
     code = ex[end]
     kwargs = ex[1:end-2]
@@ -33,13 +33,10 @@ macro range(ex...)
     domain
 
     quote
-        _isactive = isactive()
-        if _isactive
-            _domain = $domain
-            task_begin(_domain, $name)
-        end
+        _domain = $(esc(domain))
+        task_begin(_domain, $name)
         # Use Expr(:tryfinally, ...) so we don't introduce a new soft scope.
         # TODO: switch to solution once https://github.com/JuliaLang/julia/pull/39217 is resolved
-        $(Expr(:tryfinally, esc(code), :(_isactive && task_end(_domain))))
+        $(Expr(:tryfinally, esc(code), :(task_end(_domain))))
     end
 end

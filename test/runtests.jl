@@ -2,8 +2,7 @@ using IntelITT, Test
 
 @testset "IntelITT" begin
 
-IntelITT.isactive() ||
-    @warn "No ITT collector present. For complete test coverage, make sure you have a collector attached to your process, e.g., by running under VTune."
+# some tests don't work without an active collector
 inactive = !IntelITT.isactive()
 
 let d = Domain("test")
@@ -22,6 +21,7 @@ end
 
 resume()
 pause()
+IntelITT.@collect begin end
 
 thread_name!("test")
 thread_ignore()
@@ -29,7 +29,9 @@ thread_ignore()
 let d = Domain("test")
     task_begin(d, "test")
     task_end(d)
+    IntelITT.@task domain=d "test" begin end
 end
+IntelITT.@task "test" begin end
 
 let ev = Event("test")
     start(ev)
