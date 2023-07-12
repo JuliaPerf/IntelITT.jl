@@ -1,44 +1,95 @@
 # IntelITT.jl
 
-## Basic usage
+*Julia interface for the Intel Instrumentation and Tracing APIs*
 
-We recommend to use "Start Paused" mode in conjuction with `IntelITT.resume()` and `IntelITT.pause()` to measure a specific instrumented part of your code (and not, e.g., julia startup and compilation).
+IntelITT.jl provides a high-level Julia interface to the [Intel Instrumentation and Tracing
+Technology APIs](https://github.com/intel/ittapi) APIs. These make it possible to control
+and enrich the collection of trace data when profiling Julia code with Intel tools such as
+VTune.
+
+When importing IntelITT.jl, a library that provides stub implementations of the IntelITT
+APIs will be loaded. In the case your application is being profiled, these stubs will be
+replaced by an actual implementation. This means that you should always be able to use
+IntelITT.jl without having to worry about whether you are being profiled or not.
+
+
+## Collection control
+
+When actually using Intel tools to profile your application, it's recommended to start the
+profiler in paused mode, and use IntelITT.jl to only instrument the parts of your code that
+you are interested in. This can be done as follows:
 
 ```julia
 using IntelITT
 
-# Check if we are running under VTune
-@assert IntelITT.available()
+# warm-up, compile code, etc
 
-function profile_test(n)
-    for i = 1:n
-        A = randn(100,100,20)
-        m = maximum(A)
-        Am = mapslices(sum, A; dims=2)
-        B = A[:,:,5]
-        Bsort = mapslices(sort, B; dims=1)
-        b = rand(100)
-        C = B.*b
-    end
-end
-
-# Compile code once
-profile_test(1)
-
-# Resume profiling
 IntelITT.resume()
-profile_test(100)
-# Pause profiling
+# do interesting things here
 IntelITT.pause()
+
+# convenience macro for the above:
+IntelITT.@collect begin
+    # ...
+end
 ```
 
-## Julia and VTunes
+## Trace instrumentation
 
-You need to set the environment variable `ENABLE_JITPROFILING=1`.
+IntelITT.jl can also be used to enrich the trace data with custom information. For example,
+using tasks you can annotate a logical unit of work (e.g., a function call):
 
-For Julia < 1.9, you need to compile Julia from source with `USE_INTEL_JITEVENTS=1`.
+```julia
+dom = Domain("MyApplication")
+task_begin(dom, "my task")
+# ...
+task_end(dom)
 
-More information, including, e.g., a [Intel VTune remote usage example](https://juliahpc.github.io/JuliaOnHPCClusters/user_hpcprofiling/intel_vtune/) can be found in the [Julia On HPC Clusters](https://juliahpc.github.io/JuliaOnHPCClusters/) notes.
+# or, using a convenience macro:
+IntelITT.@task "my task" begin
+    # ...
+end
+```
+
+Events can be used to observe when demarcated events occur in your application, or to
+identify how long it takes to execute demarcated regions of code:
+
+```julia
+ev = Event("my event")
+start(ev)
+# ...
+stop(ev)
+```
+
+If you need to keep track of a value, you can use counters:
+
+```julia
+ctr = Counter{Float64}("my counter", "MyApplication")
+ctr[] = 0.0
+# ...
+ctr[] = 1.0
+
+# when using an UInt64 counter, you can increment/decrement it:
+ctr = Counter{UInt64}("my counter", "MyApplication")
+ctr[] = 0
+# ...
+increment!(ctr, #=delta=1=#)
+decrement!(ctr, #=delta=1=#)
+```
+
+
+## Attaching to launched processes
+
+If you want to attach a profiler to a running processe, you need to take extra care, as the
+profiler will not be able to override the stubs provided by IntelITT.jl. To work around
+this, you need to specify beforehand which ITT API collector to use. For example, if you
+know you'll be attaching using VTune, find the collector library that VTune uses:
+
+```
+$ INTEL_LIBITTNOTIFY64=~/intel/oneapi/vtune/latest/lib64/runtime/libittnotify_collector.so \
+  julia
+```
+
 
 ## Acknowledgments
 
