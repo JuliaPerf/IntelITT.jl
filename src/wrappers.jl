@@ -317,8 +317,9 @@ end
         ptr = ...
     end
 
-Mark a block of code as allocating memory. The block should return a pointer the allocated
-memory. The `initialized` argument indicates whether the memory is initialized or not.
+Mark a block of code as allocating memory. The block should return a pointer to the
+allocated memory. The `initialized` argument indicates whether the memory is initialized or
+not.
 """
 function alloc(f, h::HeapFunction, size::Integer; initialized::Bool=false)
     alloc_begin(h, size; initialized)

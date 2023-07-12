@@ -80,7 +80,7 @@ decrement!(ctr, #=delta=1=#)
 
 ## Attaching to launched processes
 
-If you want to attach a profiler to a running processe, you need to take extra care, as the
+If you want to attach a profiler to a running process, you need to take extra care, as the
 profiler will not be able to override the stubs provided by IntelITT.jl. To work around
 this, you need to specify beforehand which ITT API collector to use. For example, if you
 know you'll be attaching using VTune, find the collector library that VTune uses:
@@ -89,6 +89,20 @@ know you'll be attaching using VTune, find the collector library that VTune uses
 $ INTEL_LIBITTNOTIFY64=~/intel/oneapi/vtune/latest/lib64/runtime/libittnotify_collector.so \
   julia
 ```
+
+
+## Running Julia under VTune
+
+In addition to the instrumentation added using IntelITT.jl, it is also possible to have
+Julia's JIT compiler emit instrumentation that tools like VTune can use. This requires
+starting Julia with the environment variable `ENABLE_JITPROFILING` set to `1`. On older
+versions of Julia, pre-1.9, you also need to re-compile Julia from source with the build
+option `USE_INTEL_JITEVENTS` set to `1`.
+
+More information, including, e.g., a [Intel VTune remote usage
+example](https://juliahpc.github.io/JuliaOnHPCClusters/user_hpcprofiling/intel_vtune/) can
+be found in the [Julia On HPC Clusters](https://juliahpc.github.io/JuliaOnHPCClusters/)
+notes.
 
 
 ## Acknowledgments
