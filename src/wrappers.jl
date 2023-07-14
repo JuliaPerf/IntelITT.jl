@@ -5,6 +5,21 @@ export isactive
 const __itt_id = NTuple{3, Culonglong}
 const __itt_null = __itt_id((0, 0, 0))
 
+const id_counter = Threads.Atomic{Int}(0)
+struct Id
+    handle::__itt_id
+
+    function Id(addr=Threads.atomic_add!(id_counter, 1); extra=0)
+        handle = __itt_id((addr, extra, 0))
+        # XXX: don't we need __itt_id_create?
+        new(handle)
+    end
+
+    global NullId() = new(__itt_null)
+end
+
+Base.convert(::Type{__itt_id}, id::Id) = id.handle
+
 @inline lookup_function(name::Symbol) = _lookup_function(Val(name))
 @generated function _lookup_function(::Val{name}) where {name}
     slot_name = String(name) * "_ptr__3_0"
@@ -145,18 +160,38 @@ thread_ignore() = @apicall(:__itt_thread_ignore, Cvoid, ())
 # Tasks
 #
 
-export task_begin, task_end
+export Task, start, stop
 
-function task_begin(domain::Domain, name::String)
-    isactive() || return
-    @apicall(:__itt_task_begin, Cvoid,
-             (Ptr{__itt_domain}, __itt_id, __itt_id, Ptr{__itt_string_handle},),
-             domain, __itt_null, __itt_null, StringHandle(name))
+struct Task
+    id::Id
+    domain::Domain
+    name::StringHandle
 end
 
-function task_end(domain::Domain)
+Task(domain::Domain, name::String) = Task(Id(), domain, StringHandle(name))
+
+function start(task::Task; overlapped::Bool=true)
     isactive() || return
-    @apicall(:__itt_task_end, Cvoid, (Ptr{__itt_domain},), domain)
+    if overlapped
+        @apicall(:__itt_task_begin_overlapped, Cvoid,
+                (Ptr{__itt_domain}, __itt_id, __itt_id, Ptr{__itt_string_handle},),
+                task.domain, task.id, __itt_null, task.name)
+    else
+        @apicall(:__itt_task_begin, Cvoid,
+                (Ptr{__itt_domain}, __itt_id, __itt_id, Ptr{__itt_string_handle},),
+                task.domain, __itt_null, __itt_null, task.name)
+    end
+end
+
+function stop(task::Task; overlapped::Bool=true)
+    isactive() || return
+    if overlapped
+        @apicall(:__itt_task_end_overlapped, Cvoid,
+                (Ptr{__itt_domain}, __itt_id),
+                task.domain, task.id)
+    else
+        @apicall(:__itt_task_end, Cvoid, (Ptr{__itt_domain},), task.domain)
+    end
 end
 
 

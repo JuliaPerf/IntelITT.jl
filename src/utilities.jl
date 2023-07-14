@@ -34,9 +34,10 @@ macro task(ex...)
 
     quote
         _domain = $(esc(domain))
-        task_begin(_domain, $name)
+        _task = Task(_domain, $name)
+        start(_task)
         # Use Expr(:tryfinally, ...) so we don't introduce a new soft scope.
         # TODO: switch to solution once https://github.com/JuliaLang/julia/pull/39217 is resolved
-        $(Expr(:tryfinally, esc(code), :(task_end(_domain))))
+        $(Expr(:tryfinally, esc(code), :(stop(_task))))
     end
 end

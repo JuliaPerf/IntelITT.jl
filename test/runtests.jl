@@ -27,8 +27,9 @@ thread_name!("test")
 thread_ignore()
 
 let d = Domain("test")
-    task_begin(d, "test")
-    task_end(d)
+    t = IntelITT.Task(d, "test")
+    start(t)
+    stop(t)
     IntelITT.@task domain=d "test" begin end
 end
 IntelITT.@task "test" begin end
