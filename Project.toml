@@ -3,5 +3,8 @@ uuid = "c9b2f978-7543-4802-ae44-75068f23ee64"
 authors = ["Valentin Churavy <v.churavy@gmail.com>"]
 version = "0.1.0"
 
+[deps]
+ittapi_jll = "f03c7084-70eb-500e-bb85-e99cbc517f87"
+
 [compat]
 julia = "1.6"
