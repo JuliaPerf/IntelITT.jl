@@ -5,20 +5,12 @@ export isactive
 const __itt_id = NTuple{3, Culonglong}
 const __itt_null = __itt_id((0, 0, 0))
 
+# for compatibility with ProbeBase.jl, we only use a single integer for the id
+# (whereas it looks like we should also be able to set the second field of the __itt_id)
+Base.convert(::Type{__itt_id}, id::Int) = __itt_id((id, 0, 0))
+
 const id_counter = Threads.Atomic{Int}(0)
-struct Id
-    handle::__itt_id
-
-    function Id(addr=Threads.atomic_add!(id_counter, 1); extra=0)
-        handle = __itt_id((addr, extra, 0))
-        # XXX: don't we need __itt_id_create?
-        new(handle)
-    end
-
-    global NullId() = new(__itt_null)
-end
-
-Base.convert(::Type{__itt_id}, id::Id) = id.handle
+Id() = Threads.atomic_add!(id_counter, 1)
 
 @inline lookup_function(name::Symbol) = _lookup_function(Val(name))
 @generated function _lookup_function(::Val{name}) where {name}
@@ -163,7 +155,7 @@ thread_ignore() = @apicall(:__itt_thread_ignore, Cvoid, ())
 export Task, start, stop
 
 struct Task
-    id::Id
+    id::Int
     domain::Domain
     name::StringHandle
 end
