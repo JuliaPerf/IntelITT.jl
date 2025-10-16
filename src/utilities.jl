@@ -27,14 +27,14 @@ macro task(ex...)
         end
     end
     if domain === nothing
-        domain = :(Domain(string($__module__)))
+        domain = :($(Domain)(string($__module__)))
     end
 
     domain
 
     quote
         _domain = $(esc(domain))
-        _task = Task(_domain, $name)
+        _task = $(Task)(_domain, $name)
         start(_task)
         # Use Expr(:tryfinally, ...) so we don't introduce a new soft scope.
         # TODO: switch to solution once https://github.com/JuliaLang/julia/pull/39217 is resolved
